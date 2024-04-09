@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinuxTips Telegram</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="icon" type="image/png" href="/images/icon.png">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1><img src="/images/linuxtips.webp" alt="LinuxTips" width="100" height="100"> LinuxTips Telegram Communication <img src="/images/telegram.webp" alt="Telegram" width="50" height="50"></h1>
+    <div class="container">
+        <div class="form-section">
+            <form id="message-form">
+                <label for="message">Mensagem:</label><br>
+                <textarea id="message" name="message" rows="4" cols="50"></textarea><br>
+                
+                <div class="button-group">
+                    <button type="button" id="add-users-btn">Adicionar Usuários</button> <!-- Botão para adicionar usuários -->
+                    <button type="button" id="view-users-btn">Visualizar Usuários</button>
+                </div>
+                
+                <input type="text" id="usernames" name="usernames" style="display: none;"><br>
+                <button type="submit" id="send-message-btn">Enviar Mensagem</button>
+            </form>
+        </div>
+        <div id="status"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.3.2/socket.io.js"></script>
+    <script>
+        $(document).ready(function() {
+            console.log("Document ready!");
+
+            var socket = io.connect('http://' + document.domain + ':' + location.port);
+            console.log("Socket connected!");
+
+            $('#add-users-btn').click(function() {
+                Swal.fire({
+                    title: 'Adicionar Usuários',
+                    html: `
+                        <div>
+                            <h3>Digite um usuário por linha</h3>
+                            <textarea id="usernames-input" rows="5" style="width: 300px;"></textarea>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Salvar',
+                    cancelButtonText: 'Cancelar',
+                    preConfirm: () => {
+                        return $('#usernames-input').val().split('\n').map(u => u.trim()).filter(Boolean);
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        var usernames = result.value.join(', ');
+                        $('#usernames').val(usernames);
+
+                        $.ajax({
+                            type: 'POST',
+                            url: '/add_users',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ users: usernames.split(', ') }),
+                            success: function(response) {
+                                console.log(response);
+                            },
+                            error: function(error) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Erro ao Adicionar Usuários',
+                                    text: error.responseText
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+
+            $('#view-users-btn').click(function() {
+                $.ajax({
+                    type: 'GET',
+                    url: '/get_users',
+                    success: function(response) {
+                        Swal.fire({
+                            title: 'Usuários Cadastrados',
+                            html: response,
+                            showCancelButton: true,
+                            confirmButtonText: 'Excluir',
+                            cancelButtonText: 'Fechar',
+                            preConfirm: () => {
+
+                                var selectedUsers = $('.user-checkbox:checked').map(function() {
+                                    return $(this).val();
+                                }).get();
+
+                                if (selectedUsers.length > 0) {
+                                    $.ajax({
+                                        type: 'POST',
+                                        url: '/delete_users',
+                                        contentType: 'application/json',
+                                        data: JSON.stringify({ users: selectedUsers }),
+                                        success: function(response) {
+                                            Swal.fire({
+                                                icon: 'success',
+                                                title: 'Usuários Excluídos',
+                                                text: response
+                                            }).then(() => {
+                                                location.reload();
+                                            });
+                                        },
+                                        error: function(error) {
+                                            Swal.fire({
+                                                icon: 'error',
+                                                title: 'Erro ao Excluir Usuários',
+                                                text: error.responseText
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                        });
+                    },
+                    error: function(error) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Erro ao Obter Usuários',
+                            text: error.responseText
+                        });
+                    }
+                });
+            });
+
+            $('#message-form').submit(function(event) {
+                event.preventDefault();
+                console.log("Form submitted!");
+
+                var message = $('#message').val();
+                var usernames = $('#usernames').val();
+                console.log("Message:", message);
+                console.log("Usernames:", usernames);
+
+                socket.emit('send_message', { message: message, usernames: usernames });
+                console.log("Message sent to server!");
+            });
+
+            socket.on('status', function(data) {
+                console.log("Status received from server:", data);
+
+                Swal.fire({
+                    icon: data.startsWith('Mensagem enviada') ? 'success' : 'error',
+                    title: 'Mensagem do Servidor',
+                    text: data,
+                });
+            });
+        });
+    </script>
+</body>
+</html>
