@@ -19,4 +19,7 @@ jobs:
       uses: FabioBartoli/trivy-open-issues@main
       with:
         github_token: ${{ github.token }}
-        severity: "HIGH,CRITICAL"
+        severity: "LOW,HIGH,CRITICAL"
+        skip-dirs: "./images", "./static"
+        ignore-unfixed: false
+        skip-files: "./redis.conf", "./README.md"
