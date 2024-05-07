@@ -20,6 +20,6 @@ jobs:
       with:
         github_token: ${{ github.token }}
         severity: "LOW,HIGH,CRITICAL"
-        skip-dirs: "./images", "./static"
+        skip-dirs: "./images,./static"
         ignore-unfixed: false
-        skip-files: "./redis.conf", "./README.md"
+        skip-files: "./redis.conf,./README.md"
